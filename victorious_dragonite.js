@@ -118,7 +118,7 @@ class Character {
     this.max_stamina = max_stamina;
     this.max_health = max_health;
     this.info = info;
-    
+    this.previous_pos = this.info["pos"]
     this.health = this.max_health;
     this.stamina = this.max_stamina;
     this.sprite_type = this.info["sprite"];
@@ -136,7 +136,7 @@ class Character {
 
   heal() {
     this.stamina += 1;
-    this.health +=1;
+    // this.health +=1;
 
     // Not a very good way to do this, but it caps the health and stamina
     if(this.stamina > this.max_stamina) {
@@ -146,6 +146,11 @@ class Character {
       this.health = this.max_health;
     }
   }
+
+  pushPos() {
+    this.previous_pos = this.info["pos"][0];
+  }
+  
 }
 
 var player = new Character(3, 3, {
@@ -168,6 +173,7 @@ noAction = {
 };
 actionToTake = noAction
 
+// Right
 onInput("d", () => {
   actionToTake = {
     "action_type": "move",
@@ -178,6 +184,7 @@ onInput("d", () => {
   }
 });
 
+// Left
 onInput("a", () => {
   actionToTake = {
     "action_type": "move",
@@ -188,10 +195,18 @@ onInput("a", () => {
   }
 });
 
+// Dash
 onInput("s", () => {
   if(actionToTake != noAction) {
     actionToTake["action_data"]["dash"] = "yes";
     actionToTake["action_data"]["move"] *= 2;
+  }
+});
+
+// Guard
+onInput("w", () => {
+  actionToTake = {
+    "action_type": "guard"
   }
 });
 
@@ -244,6 +259,9 @@ function gameLoop() {
   if(interval >= 3) {
     interval = -1;
     time = "!";
+    player.pushPos();
+    enemy.pushPos();
+    guard = false;
     if(actionToTake["action_type"] == "move") {
       staminaCost = Math.abs(actionToTake["action_data"]["move"]);
       if(player.stamina >= staminaCost) {
@@ -258,8 +276,63 @@ function gameLoop() {
           color: color`3`
         });
       }
+    } else if (actionToTake["action_type"] == "guard") {
+      guard = true;
+      player.stamina = 0;
     }
-
+    if (!guard) {
+      if (player.info["pos"][0] == enemy.info["pos"][0] ) {
+          // Both players hit each other - Its a tie!
+          // clearInterval(gameInterval);
+          addText("ITS A TIE!", {
+            x: 0,
+            y: 11,
+            color: color`3`
+          });
+          player.health -= 1;
+          enemy.health -=1;
+        } else if (player.info["pos"][0] < enemy.previous_pos || player.info["pos"][0] > enemy.previous_pos) { // Check if one player passed the other player
+          // PLAYER
+          if (player.info["pos"][0] < enemy.previous_pos && (player.info["pos"][0] - player.previous_pos) < 0) { // CHeck if the player passed the enemy by going left
+            enemy.health -= 1;
+          }
+          if (player.info["pos"][0] > enemy.previous_pos && (player.info["pos"][0] - player.previous_pos) > 0) { // CHeck if the player passed the enemy by going right
+            enemy.health -= 1;
+          }
+          // ENEMY
+          if (enemy.info["pos"][0] < player.previous_pos && (enemy.info["pos"][0] - enemy.previous_pos) < 0) { // CHeck if the enemy passed the player by going left
+            player.health -= 1;
+          }
+          if (enemy.info["pos"][0] > player.previous_pos && (enemy.info["pos"][0] - enemy.previous_pos) > 0) { // CHeck if the enemy passed the player by going right
+            player.health -= 1;
+          }
+        }
+    }
+      // Check for a death
+      if (enemy.health <= 0 && player.health <= 0) {
+        clearInterval(gameInterval);
+        addText("ITS A TIE!", {
+          x: 0,
+          y: 11,
+          color: color`3`
+        });
+      } else if (enemy.health <= 0) {
+        clearInterval(gameInterval);
+        clearText();
+        addText("BLUE WINS!", {
+          x: 0,
+          y: 11,
+          color: color`7`
+        });
+      } else if (player.heatlh <= 0) {
+        clearInterval(gameInterval);
+        clearText();
+        addText("RED WINS!", {
+          x: 0,
+          y: 11,
+          color: color`3`
+        });
+    }
     // drawStats();
     // Cycle +1, and heal characters if it is a third cycle
     if(cycle >=3) {
@@ -287,4 +360,4 @@ function gameLoop() {
 }
 
 // Run gameLoop once every second
-setInterval(gameLoop, 1000);
+var gameInterval = setInterval(gameLoop, 250);
